@@ -106,10 +106,13 @@ class SomeMpack(Script)
         ("Description", "Description of my service"),
       ],
     )
+    # Make sure you pass unit_file. This should be
+    # name_of_service with ".service" at the end
     polkit_rule = PolkitRule(
       unit_file_name,
       users=[list_of_users_allowed_to_manage_this_service],
       ambari_user=ambari_user,
+      unit_file=self.my_service_name + ".service",
     )
     
     unit_file.write()
