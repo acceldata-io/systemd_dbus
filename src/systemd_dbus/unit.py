@@ -276,7 +276,7 @@ class UnitFile:
                 ("User", user),
                 ("Group", group if group else user),
                 ("ProtectSystem", "full"),
-                ("ReadWritePaths", "/etc/{0}".format(self.name)),
+                ("ReadWritePaths", "-/etc/{0}".format(self.name)),
                 ("ReadWritePaths", "/usr/odp/"),
                 ("LogsDirectory", self.name),
                 ("RuntimeDirectory", runtime_directory),
