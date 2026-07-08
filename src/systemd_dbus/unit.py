@@ -18,7 +18,7 @@ under the License.
 """
 
 from __future__ import print_function
-__lazy_modules__ = []
+__lazy_modules__ = ["logging", "os", "pwd", "sys"]
 #from resource_management.core import sudo
 
 try:
@@ -27,9 +27,13 @@ except ImportError:
     from collections import Sequence
 
 from io import UnsupportedOperation
+import logging
 import os
 import pwd
 import sys
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("systemd_dbus")
 
 # Allows us to use basestring across Python 2 and 3 by setting it to str if Python 3
 # Cleans up checking the types of certain variables
@@ -44,8 +48,8 @@ class Option:
 
     def __init__(self, key, value, comment=None):
         # type: (str, str, str|None) -> None
-        self.key = key
-        self.value = value
+        self.key = str(key)
+        self.value = str(value)
         self.comment = comment
         if not self.key or "\n" in self.key:
             raise ValueError("Invalid key {0}".format(self.key))
@@ -397,11 +401,31 @@ class UnitFile:
         if group:
             self.set_key("Group", group, "Service")
 
-    def add_writable_path(self, path, comment=None, *paths):
-        """Add permission to read and write to the paths. *paths can contain additional paths."""
-        self.options["Service"].add("ReadWritePaths", path, comment)
-        for p in paths:
-            self.options["Service"].add("ReadWritePaths", p, None)
+    def add_writable_paths(self, paths=None):
+        # type: (list[str]|None) -> None
+        """Add permission to read and write to  paths. *paths can contain additional paths. Directories in /tmp do not need to be added."""
+        if paths is None:
+            paths = []
+        for path in paths:
+            self.add_writable_path(path)
+
+    def add_writable_path(self, path, comment=None, allow_failure=False, *paths):
+        # type: (str, str|None, bool, *str) -> None
+        """Add permission to read and write to  paths."""
+        if path is None or not str(path).strip():
+            raise ValueError("Path cannot be empty or None")
+
+        elif str(path).startswith("/tmp"):
+            logger.warning("Ignoring {} since it's in /tmp".format(path))
+
+        else:
+            if allow_failure:
+                path = "-{}".format(path)
+
+            self.options["Service"].add("ReadWritePaths", path, comment)
+        if isinstance(paths, list):
+            self.add_writable_paths(paths)
+
 
     def add_env_var(self, var, value):
         """Add one variable to the environment"""
