@@ -32,8 +32,12 @@ import os
 import pwd
 import sys
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("systemd_dbus")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+logger.addHandler(handler)
+logger.propagate = False
 
 # Allows us to use basestring across Python 2 and 3 by setting it to str if Python 3
 # Cleans up checking the types of certain variables
