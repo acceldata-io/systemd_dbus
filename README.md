@@ -27,7 +27,7 @@ from systemd_dbus import SystemdManager
 
 manager = SystemdManager()
 print(manager.pid("sshd.service"))
-print(manager.version("sshd.service"))
+print(manager.version())
 # '.service' will be appended if not provided
 manager.start("kudu-master.service")
 manager.stop("kudu-master")
