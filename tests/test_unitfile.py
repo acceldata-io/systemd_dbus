@@ -16,8 +16,6 @@ specific language governing permissions and limitations
 under the License.
 """
 
-import pytest
-
 def test_unitfile():
     from systemd_dbus import UnitFile
     expected_output = \

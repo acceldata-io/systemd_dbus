@@ -16,13 +16,23 @@ specific language governing permissions and limitations
 under the License.
 """
 
-from ambari_jinja2.environment import Environment
-from resource_management.core import sudo
-from subprocess import Popen, PIPE
-from resource_management.core.logger import Logger
+try:
+    from ambari_jinja2.environment import Environment  # pyright: ignore noqa
 
+except ImportError:
+    from jinja2 import Environment  # pyright: ignore noqa
+
+import logging
 import os
 import re
+from subprocess import PIPE, Popen
+
+logger = logging.getLogger("systemd_dbus")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+logger.addHandler(handler)
+logger.propagate = False
 
 class PolkitRule:
     """Generate polkit js rules from a jinja2 template."""
@@ -71,14 +81,20 @@ class PolkitRule:
 
     def write(self, output_dir="/usr/share/polkit-1/rules.d/"):
         """Write the polkit rule to a file."""
+
         version = self.version()
         if version is None or version < 106:
-            Logger.info(
+            logger.info(
                 "Polkit not installed, or does not support JS rules, skipping writing rule"
             )
             return False
         filename = os.path.join(output_dir, self.name)
-        sudo.create_file(filename, self.render(), encoding="utf-8")
+        try:
+            from resource_management.core import sudo  # pyright: ignore noqa
+            sudo.create_file(filename, self.render(), encoding="utf-8")
+        except ImportError:
+            with open(filename, "w") as f:
+                print(self.render(), file=f)
         return True
 
     def version(self):
@@ -87,13 +103,13 @@ class PolkitRule:
         try:
             process = Popen(command, stdout=PIPE, stderr=PIPE)
         except OSError as e:
-            Logger.info(
+            logger.info(
                 "Unable to execute pkcheck to get polkit version: {0}".format(e)
             )
             return None
         stdout, stderr = process.communicate()
         if stderr:
-            Logger.error(stderr.decode())
+            logger.error(stderr.decode())
             return None
 
         version = stdout.decode().strip()

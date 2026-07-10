@@ -16,9 +16,6 @@ specific language governing permissions and limitations
 under the License.
 """
 
-import pytest
-import sys
-
 def test_polkit_rule():
     from systemd_dbus import PolkitRule
 

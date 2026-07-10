@@ -16,12 +16,24 @@ specific language governing permissions and limitations
 under the License.
 """
 from __future__ import print_function
+
+import logging
 import re
 import subprocess
-import warnings
 import sys
 import syslog
+import warnings
+
 from systemd_dbus import _sdbus
+
+logger = logging.getLogger("systemd_dbus:Manager")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+logger.addHandler(handler)
+logger.propagate = False
+
+
 try:
     from resource_management.core import shell
     AMBARI_AVAILABLE = True
@@ -49,7 +61,7 @@ class SystemdManager:
             try:
                 self._bus = _sdbus.Bus()
             except _sdbus.SystemdDBusError as e:
-                warnings.warn("Failed to connect to D-Bus, falling back to systemctl: {}".format(e))
+                warnings.warn("Failed to connect to D-Bus, falling back to systemctl: {}".format(e), stacklevel=2)
 
     @classmethod
     def _check_dbus(cls):
@@ -58,7 +70,7 @@ class SystemdManager:
         try:
             return _sdbus.check_dbus_available()
         except (RuntimeError, _sdbus.SystemdDBusError) as e:
-            warnings.warn("D-Bus unavailable, falling back to systemctl: {}".format(e))
+            warnings.warn("D-Bus unavailable, falling back to systemctl: {}".format(e), stacklevel=2)
             return False
 
     def connected(self):
@@ -74,6 +86,7 @@ class SystemdManager:
             try:
                 self._bus.__exit__(None, None, None)
             except Exception:
+                logger.warning("Exception occurred while closing D-Bus connection in close()", exc_info=True)
                 pass
             finally:
                 self._bus = None
@@ -91,6 +104,7 @@ class SystemdManager:
         try:
             self.close()
         except Exception:
+            logger.warning("Exception occurred while closing D-Bus connection in __del__", exc_info=True)
             pass
 
     def _call(self, fn_name, unit_name):
@@ -106,10 +120,10 @@ class SystemdManager:
                 msg = str(e)
                 msg_lower = msg.lower()
                 if "denied" in msg_lower or "interactive authentication" in msg_lower:
-                    warnings.warn("D-Bus permission denied for {}, attempting fallback".format(fn_name))
+                    warnings.warn("D-Bus permission denied for {}, attempting fallback".format(fn_name), stacklevel=2)
                     self._fallback_call(fn_name, unit_name)
                     return
-                raise SystemdError("{0} failed for {1!r}: {2}".format(fn_name, unit_name, msg))
+                raise SystemdError("{0} failed for {1!r}: {2}".format(fn_name, unit_name, msg)) from e
         else:
             self._fallback_call(fn_name, unit_name)
 
@@ -138,15 +152,15 @@ class SystemdManager:
                 process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e))
+                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
             try:
                 _, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as e:
                 process.kill()
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl {0!r} timed out after {1} seconds for {2!r}".format(replaced_fn_name, timeout, unit_name)
-                )
+                ) from e
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
@@ -179,15 +193,15 @@ class SystemdManager:
                 process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e))
+                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
             try:
                 stdout, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as e:
                 process.kill()
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl {!r} timed out after {} seconds for {!r}".format(replaced_fn_name, timeout, unit_name)
-                )
+                ) from e
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
@@ -201,7 +215,7 @@ class SystemdManager:
             return _sdbus.get_property(self._bus, destination, path, interface,
                                        property, dbus_type)
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get {!r}: {}".format(property, e))
+            raise SystemdError("Failed to get {!r}: {}".format(property, e)) from e
 
     def get_unit_property(self, unit_name, property_name):
         """Get a known property of a systemd unit, such as ActiveState or MainPID. The .service suffix is optional."""
@@ -211,7 +225,7 @@ class SystemdManager:
         try:
             return _sdbus.get_unit_property(self._bus, unit_name, property_name)
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get {} for {!r}: {}".format(property_name, unit_name, e))
+            raise SystemdError("Failed to get {} for {!r}: {}".format(property_name, unit_name, e)) from e
 
     def get_unit_property_raw(self, unit_name, interface, property_name, dbus_type):
         """Get any property of a systemd unit, specifying the interface and type
@@ -228,7 +242,7 @@ class SystemdManager:
                 "Failed to get {}/{} for {!r}: {}".format(
                     interface, property_name, unit_name, e
                 )
-            )
+            ) from e
 
     def daemon_reload(self):
         """Reload the systemd daemon to pick up any changes to unit files."""
@@ -238,10 +252,10 @@ class SystemdManager:
             except _sdbus.SystemdDBusError as e:
                 msg = str(e)
                 if "Interactive authentication" in msg:
-                    warnings.warn("D-Bus permission denied for daemon_reload, attempting fallback")
+                    warnings.warn("D-Bus permission denied for daemon_reload, attempting fallback", stacklevel=2)
                     self._fallback_reload()
                     return
-                raise SystemdError("Systemd daemon reload failed: {}".format(msg))
+                raise SystemdError("Systemd daemon reload failed: {}".format(msg)) from e
         else:
             self._fallback_reload()
 
@@ -265,15 +279,15 @@ class SystemdManager:
                                            stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e))
+                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
             try:
                 _, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as e:
                 process.kill()
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl daemon-reload timed out after {} seconds".format(timeout)
-                )
+                ) from e
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl daemon-reload failed: {}".format(stderr.decode().strip())
@@ -299,7 +313,7 @@ class SystemdManager:
                 _, changes = _sdbus.enable_unit(self._bus, unit_name)
                 return changes
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("enable_unit failed for {!r}: {}".format(unit_name, e))
+                raise SystemdError("enable_unit failed for {!r}: {}".format(unit_name, e)) from e
         else:
             self._fallback_call("enable_unit", unit_name)
             return []
@@ -311,7 +325,7 @@ class SystemdManager:
             try:
                 return _sdbus.disable_unit(self._bus, unit_name)
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("disable_unit failed for {!r}: {}".format(unit_name, e))
+                raise SystemdError("disable_unit failed for {!r}: {}".format(unit_name, e)) from e
         else:
             self._fallback_call("disable_unit", unit_name)
             return []
@@ -352,7 +366,7 @@ class SystemdManager:
                 active_state = _sdbus.get_unit_property(self._bus, unit_name, "ActiveState")
                 return active_state == "active"
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("Failed to get ActiveState for {!r}: {}".format(unit_name, e))
+                raise SystemdError("Failed to get ActiveState for {!r}: {}".format(unit_name, e)) from e
         else:
             return self._fallback_active(unit_name)
 
@@ -361,17 +375,17 @@ class SystemdManager:
             process = subprocess.Popen(["systemctl", "is-active", unit_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
                 process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
+            except subprocess.TimeoutExpired as e:
                 process.kill()
                 process.communicate()
                 raise SystemdError(
                     "systemctl is-active timed out after {} seconds for {!r}".format(
                         timeout, unit_name
                     )
-                )
+                ) from e
             return process.returncode == 0
         except OSError as e:
-            raise SystemdError("Failed to check active state for {!r}: {}".format(unit_name, e))
+            raise SystemdError("Failed to check active state for {!r}: {}".format(unit_name, e)) from e
 
 
     def pid(self, unit_name):
@@ -388,10 +402,10 @@ class SystemdManager:
             try:
                 pid = int(raw.split("=", 1)[1])
                 return pid if pid != 0 else None
-            except ValueError:
+            except ValueError as e:
                 raise SystemdError(
                     "Failed to parse PID from systemctl output: {!r}".format(raw)
-                )
+                ) from e
 
         try:
             # This should only ever return a number that can fit into an int, but because of the Python 2 api, 
@@ -399,9 +413,9 @@ class SystemdManager:
             pid = int(_sdbus.get_unit_property(self._bus, unit_name, "MainPID"))
             return pid if pid > 0 else None
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get MainPID for {!r}: {}".format(unit_name, e))
+            raise SystemdError("Failed to get MainPID for {!r}: {}".format(unit_name, e)) from e
         except ValueError as e:
-            raise SystemdError("MainPID for {!r} not a valid number: {}. This is likely a bug in the c code".format(unit_name, e))
+            raise SystemdError("MainPID for {!r} not a valid number: {}. This is likely a bug in the c code".format(unit_name, e)) from e
 
     def virtualization(self):
         """Returns None if it is not running in some virtualization, or a string identifying the type if it is"""
@@ -417,7 +431,7 @@ class SystemdManager:
                 )
                 return val if val else None
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("Failed to get virtualization property: {}".format(e))
+                raise SystemdError("Failed to get virtualization property: {}".format(e)) from e
 
         else:
             return None
@@ -441,7 +455,7 @@ class SystemdManager:
 
 
         except (OSError, subprocess.TimeoutExpired) as e:
-            warnings.warn("Error occured while trying to detect if we're running in a container: {}".format(e))
+            warnings.warn("Error occured while trying to detect if we're running in a container: {}".format(e), stacklevel=2)
             pass
 
         try:

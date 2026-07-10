@@ -2,29 +2,30 @@
 requires = [
   "setuptools >= 80; python_version >= '3.9'",
   "setuptools >= 75; python_version  == '3.8'",
-  "setuptools >= 44; python_version < '3.8' and python_version >= '2.7'",
+  "setuptools >= 44; python_version < '3.8' and python_version >= '2.7'", # Python 2 won't actually read this file
+  "jinja2 == 2.11.3; python_version <= '3.8'",
+  "jinja2 == 3.1.6; python_version >= '3.11'",
   "wheel",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "systemd-dbus"
-version = "0.3"
+version = "0.4"
 description = """Thin Python bindings for a minimal set of systemd service management commands, using sd-bus. Also includes functionality for creating unit files, as well as polkit rules."""
 requires-python = ">=2.7"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 authors = [{ name = "Jeffrey Smith", email = "jeffrey.smith@acceldata.io" }]
 maintainers = [{ name = "Jeffrey Smith", email = "jeffrey.smith@acceldata.io" }]
 readme = "README.md"
 classifiers = ["Operating System :: POSIX :: Linux"]
 
 
-
 [project.optional-dependencies]
 dev = [
   "pytest >= 9.0, < 10; python_version >= '3.9'",
   "pytest >= 6.0, < 7; python_version >= '3.6' and python_version < '3.9'",
-  "pytest==4.6.11; python_version == '2.7'",
+  "pytest==4.6.11; python_version == '2.7'",                                # Python 2 won't actually read this file
 ]
 
 [tool.setuptools]
@@ -42,3 +43,52 @@ addopts = "-m not-integration"
 markers = [
   "integration: requires D-Bus and systemd (deselect with '-m not integration')",
 ]
+
+[tool.ruff]
+exclude = [
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pyenv",
+  ".pytest_cache",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  ".vscode",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "site-packages",
+  "venv",
+]
+
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "S", "B", "I"]
+ignore = ["S101", "S603", "S701", "S607"]
+
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

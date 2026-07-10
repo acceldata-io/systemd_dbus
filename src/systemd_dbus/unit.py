@@ -18,19 +18,19 @@ under the License.
 """
 
 from __future__ import print_function
+
 __lazy_modules__ = ["logging", "os", "pwd", "sys"]
-#from resource_management.core import sudo
 
 try:
     from collections.abc import Sequence
 except ImportError:
-    from collections import Sequence
+    from collections import Sequence  # pyright: ignore # noqa
 
-from io import UnsupportedOperation
 import logging
 import os
 import pwd
 import sys
+from io import UnsupportedOperation
 
 logger = logging.getLogger("systemd_dbus")
 logger.setLevel(logging.INFO)
@@ -42,7 +42,7 @@ logger.propagate = False
 # Allows us to use basestring across Python 2 and 3 by setting it to str if Python 3
 # Cleans up checking the types of certain variables
 try:
-    basestring
+    basestring # pyright: ignore # noqa
     ModuleNotFoundError = ImportError
 except NameError:
     basestring = str
@@ -268,7 +268,7 @@ class UnitFile:
         if isinstance(runtime_dir, basestring):
             runtime_directory = runtime_dir
         elif isinstance(runtime_dir, Sequence):
-            runtime_directory = " ".join(runtime_dir)
+            runtime_directory = " ".join(runtime_dir) # pyright: ignore # noqa
         else:
             runtime_directory = self.name
 
@@ -419,7 +419,7 @@ class UnitFile:
         if path is None or not str(path).strip():
             raise ValueError("Path cannot be empty or None")
 
-        elif str(path).startswith("/tmp"):
+        elif str(path).startswith("/tmp"): # noqa
             logger.warning("Ignoring {} since it's in /tmp".format(path))
 
         else:
@@ -473,7 +473,7 @@ class UnitFile:
             raise
 
         try:
-            from resource_management.core import sudo
+            from resource_management.core import sudo  # pyright: ignore # noqa
             sudo.create_file(file_path, output, encoding="utf-8")
             sudo.chown(file_path, user)
             sudo.chmod(file_path, permission)
@@ -515,7 +515,7 @@ class UnitFile:
     def delete(self):
         """Delete the systemd unit file"""
         try:
-            from resource_management.core import sudo
+            from resource_management.core import sudo  # pyright: ignore # noqa
             if os.path.exists(self.file_path):
                 sudo.unlink(self.file_path)
 
@@ -533,7 +533,7 @@ class UnitFile:
         if len(unit_file) == 0:
             print("Unit File: {} is empty", file=sys.stderr)
         try:
-            from resource_management.core import sudo
+            from resource_management.core import sudo  # pyright: ignore # noqa
             sudo.create_file(self.file_path, unit_file, encoding="utf-8")
         except ModuleNotFoundError:
             with open(self.file_path, "w") as f:

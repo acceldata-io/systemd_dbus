@@ -1,4 +1,4 @@
-from setuptools import setup, Extension, find_packages
+from setuptools import Extension, find_packages, setup
 
 native = Extension(
     name="systemd_dbus._sdbus",
@@ -10,12 +10,13 @@ native = Extension(
 
 setup(
     name="systemd-dbus",
-    version="0.3",
+    version="0.4",
     description="Thin Python bindings for a minimal set of systemd service management commands, using sd-bus",
     author="Jeffrey Smith",
     author_email="jeffrey.smith@acceldata.io",
     license="Apache-2.0",
     python_requires=">=2.7",
+    install_requires=["jinja2 == 2.11.3; python_version == '2.7'"],
     ext_modules=[native],
     packages=find_packages(where="src"),
     package_dir={"": "src"},

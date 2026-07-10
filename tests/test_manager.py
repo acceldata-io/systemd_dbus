@@ -16,10 +16,10 @@ specific language governing permissions and limitations
 under the License.    
 """
 
-import pytest
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest  # pyright: ignore noqa
 
 if sys.platform != "linux":
     pytest.skip("systemd-dbus only supported on Linux", allow_module_level=True)
