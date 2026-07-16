@@ -123,7 +123,7 @@ class SystemdManager:
                     warnings.warn("D-Bus permission denied for {}, attempting fallback".format(fn_name), stacklevel=2)
                     self._fallback_call(fn_name, unit_name)
                     return
-                raise SystemdError("{0} failed for {1!r}: {2}".format(fn_name, unit_name, msg)) from e
+                raise SystemdError("{0} failed for {1!r}: {2}".format(fn_name, unit_name, msg))
         else:
             self._fallback_call(fn_name, unit_name)
 
@@ -152,7 +152,7 @@ class SystemdManager:
                 process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
+                raise SystemdError("Failed to execute systemctl command: {}".format(e))
             try:
                 _, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired as e:
@@ -160,7 +160,7 @@ class SystemdManager:
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl {0!r} timed out after {1} seconds for {2!r}".format(replaced_fn_name, timeout, unit_name)
-                ) from e
+                )
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
@@ -193,7 +193,7 @@ class SystemdManager:
                 process = subprocess.Popen(command, stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
+                raise SystemdError("Failed to execute systemctl command: {}".format(e))
             try:
                 stdout, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired as e:
@@ -201,7 +201,7 @@ class SystemdManager:
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl {!r} timed out after {} seconds for {!r}".format(replaced_fn_name, timeout, unit_name)
-                ) from e
+                )
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
@@ -215,7 +215,7 @@ class SystemdManager:
             return _sdbus.get_property(self._bus, destination, path, interface,
                                        property, dbus_type)
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get {!r}: {}".format(property, e)) from e
+            raise SystemdError("Failed to get {!r}: {}".format(property, e))
 
     def get_unit_property(self, unit_name, property_name):
         """Get a known property of a systemd unit, such as ActiveState or MainPID. The .service suffix is optional."""
@@ -225,7 +225,7 @@ class SystemdManager:
         try:
             return _sdbus.get_unit_property(self._bus, unit_name, property_name)
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get {} for {!r}: {}".format(property_name, unit_name, e)) from e
+            raise SystemdError("Failed to get {} for {!r}: {}".format(property_name, unit_name, e))
 
     def get_unit_property_raw(self, unit_name, interface, property_name, dbus_type):
         """Get any property of a systemd unit, specifying the interface and type
@@ -242,7 +242,7 @@ class SystemdManager:
                 "Failed to get {}/{} for {!r}: {}".format(
                     interface, property_name, unit_name, e
                 )
-            ) from e
+            )
 
     def daemon_reload(self):
         """Reload the systemd daemon to pick up any changes to unit files."""
@@ -255,7 +255,7 @@ class SystemdManager:
                     warnings.warn("D-Bus permission denied for daemon_reload, attempting fallback", stacklevel=2)
                     self._fallback_reload()
                     return
-                raise SystemdError("Systemd daemon reload failed: {}".format(msg)) from e
+                raise SystemdError("Systemd daemon reload failed: {}".format(msg))
         else:
             self._fallback_reload()
 
@@ -279,7 +279,7 @@ class SystemdManager:
                                            stdout=subprocess.PIPE,
                                            stderr=subprocess.PIPE)
             except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e)) from e
+                raise SystemdError("Failed to execute systemctl command: {}".format(e))
             try:
                 _, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired as e:
@@ -287,7 +287,7 @@ class SystemdManager:
                 _, stderr = process.communicate()
                 raise SystemdError(
                     "systemctl daemon-reload timed out after {} seconds".format(timeout)
-                ) from e
+                )
             if process.returncode != 0:
                 raise SystemdError(
                     "systemctl daemon-reload failed: {}".format(stderr.decode().strip())
@@ -313,7 +313,7 @@ class SystemdManager:
                 _, changes = _sdbus.enable_unit(self._bus, unit_name)
                 return changes
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("enable_unit failed for {!r}: {}".format(unit_name, e)) from e
+                raise SystemdError("enable_unit failed for {!r}: {}".format(unit_name, e))
         else:
             self._fallback_call("enable_unit", unit_name)
             return []
@@ -325,7 +325,7 @@ class SystemdManager:
             try:
                 return _sdbus.disable_unit(self._bus, unit_name)
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("disable_unit failed for {!r}: {}".format(unit_name, e)) from e
+                raise SystemdError("disable_unit failed for {!r}: {}".format(unit_name, e))
         else:
             self._fallback_call("disable_unit", unit_name)
             return []
@@ -366,7 +366,7 @@ class SystemdManager:
                 active_state = _sdbus.get_unit_property(self._bus, unit_name, "ActiveState")
                 return active_state == "active"
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("Failed to get ActiveState for {!r}: {}".format(unit_name, e)) from e
+                raise SystemdError("Failed to get ActiveState for {!r}: {}".format(unit_name, e))
         else:
             return self._fallback_active(unit_name)
 
@@ -379,13 +379,13 @@ class SystemdManager:
                 process.kill()
                 process.communicate()
                 raise SystemdError(
-                    "systemctl is-active timed out after {} seconds for {!r}".format(
-                        timeout, unit_name
+                    "systemctl is-active timed out after {} seconds for {!r}. Error: {}".format(
+                        timeout, unit_name, e
                     )
-                ) from e
+                )
             return process.returncode == 0
         except OSError as e:
-            raise SystemdError("Failed to check active state for {!r}: {}".format(unit_name, e)) from e
+            raise SystemdError("Failed to check active state for {!r}: {}".format(unit_name, e))
 
 
     def pid(self, unit_name):
@@ -404,8 +404,8 @@ class SystemdManager:
                 return pid if pid != 0 else None
             except ValueError as e:
                 raise SystemdError(
-                    "Failed to parse PID from systemctl output: {!r}".format(raw)
-                ) from e
+                    "Failed to parse PID from systemctl output: {!r}. Error: {}".format(raw, e)
+                )
 
         try:
             # This should only ever return a number that can fit into an int, but because of the Python 2 api, 
@@ -413,9 +413,9 @@ class SystemdManager:
             pid = int(_sdbus.get_unit_property(self._bus, unit_name, "MainPID"))
             return pid if pid > 0 else None
         except _sdbus.SystemdDBusError as e:
-            raise SystemdError("Failed to get MainPID for {!r}: {}".format(unit_name, e)) from e
+            raise SystemdError("Failed to get MainPID for {!r}: {}".format(unit_name, e))
         except ValueError as e:
-            raise SystemdError("MainPID for {!r} not a valid number: {}. This is likely a bug in the c code".format(unit_name, e)) from e
+            raise SystemdError("MainPID for {!r} not a valid number: {}. This is likely a bug in the c code".format(unit_name, e))
 
     def virtualization(self):
         """Returns None if it is not running in some virtualization, or a string identifying the type if it is"""
@@ -431,7 +431,7 @@ class SystemdManager:
                 )
                 return val if val else None
             except _sdbus.SystemdDBusError as e:
-                raise SystemdError("Failed to get virtualization property: {}".format(e)) from e
+                raise SystemdError("Failed to get virtualization property: {}".format(e))
 
         else:
             return None
