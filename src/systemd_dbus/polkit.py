@@ -23,6 +23,7 @@ try:
 except ImportError:
     from jinja2 import Environment  # pyright: ignore noqa
 
+__lazy_imports__ = ["os", "re"]
 import logging
 import os
 import re

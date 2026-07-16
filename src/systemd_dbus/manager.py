@@ -17,11 +17,14 @@ under the License.
 """
 from __future__ import print_function
 
+__lazy_imports__ = ["logging", "re", "subprocess", "sys", "threading", "warnings"]
+
 import logging
 import re
 import subprocess
 import sys
 import syslog
+import threading
 import warnings
 
 from systemd_dbus import _sdbus
@@ -148,22 +151,14 @@ class SystemdManager:
                     "systemctl {0!r} failed for {1!r} through Ambari: {2}".format(replaced_fn_name, unit_name, stderr.strip())
                 )
         else:
-            try:
-                process = subprocess.Popen(command, stdout=subprocess.PIPE,
-                                           stderr=subprocess.PIPE)
-            except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e))
-            try:
-                _, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired as e:
-                process.kill()
-                _, stderr = process.communicate()
+            result = _run_with_timeout(command, timeout)
+            if result is None:
                 raise SystemdError(
                     "systemctl {0!r} timed out after {1} seconds for {2!r}".format(replaced_fn_name, timeout, unit_name)
                 )
-            if process.returncode != 0:
+            if result[2] != 0:
                 raise SystemdError(
-                    "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
+                    "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, result[1].decode().strip())
                 )
 
     def _fallback_with_stdout(self, fn_name, unit_name, timeout = 30,
@@ -189,24 +184,15 @@ class SystemdManager:
                 )
             return stdout.strip()
         else:
-            try:
-                process = subprocess.Popen(command, stdout=subprocess.PIPE,
-                                           stderr=subprocess.PIPE)
-            except OSError as e:
-                raise SystemdError("Failed to execute systemctl command: {}".format(e))
-            try:
-                stdout, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired as e:
-                process.kill()
-                _, stderr = process.communicate()
+            result = _run_with_timeout(command, timeout)
+            if result is None:
                 raise SystemdError(
                     "systemctl {!r} timed out after {} seconds for {!r}".format(replaced_fn_name, timeout, unit_name)
                 )
-            if process.returncode != 0:
-                raise SystemdError(
-                    "systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, stderr.decode().strip())
-                )
-            return stdout.strip()
+            if result[2] != 0:
+                raise SystemdError("systemctl {!r} failed for {!r}: {}".format(replaced_fn_name, unit_name, result[1].decode().strip()))
+
+            return result[0].strip()
 
     def _get_property(self, destination, path, interface,
                       property, dbus_type):
@@ -371,21 +357,10 @@ class SystemdManager:
             return self._fallback_active(unit_name)
 
     def _fallback_active(self, unit_name, timeout=10):
-        try:
-            process = subprocess.Popen(["systemctl", "is-active", unit_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            try:
-                process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired as e:
-                process.kill()
-                process.communicate()
-                raise SystemdError(
-                    "systemctl is-active timed out after {} seconds for {!r}. Error: {}".format(
-                        timeout, unit_name, e
-                    )
-                )
-            return process.returncode == 0
-        except OSError as e:
-            raise SystemdError("Failed to check active state for {!r}: {}".format(unit_name, e))
+        result = _run_with_timeout(["systemctl", "is-active", unit_name], timeout)
+        if result is None:
+            raise SystemdError("systemctl is-active timed out after {} seconds for {!r}".format(timeout, unit_name))
+        return result[2] == 0
 
 
     def pid(self, unit_name):
@@ -436,34 +411,29 @@ class SystemdManager:
         else:
             return None
 
-    def container(self):
+    def container(self, timeout=5):
         # systemd-detect-virt is probably the best way to figure out if we're in a container.
         # It does a lot of different things to try to determine if it's running in a container and is more
         # reliable than checking the dbus property
         try:
-            process = subprocess.Popen(
-                ["systemd-detect-virt", "--container"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            stdout, _ = process.communicate(timeout=5)
-            if process.returncode == 0:
-                out = stdout.decode().strip()
+            result = _run_with_timeout(["systemd_detect-virt", "--container"], timeout)
+            if result is None:
+                warnings.warn("systemd-detect-virt timed out after {} seconds, falling back to other methods".format(timeout), stacklevel=2)
+            elif result[2] == 0:
+                out = result[0].decode().strip()
                 if out == "none":
                     return None
                 return out or None
+        except OSError as e:
+            logger.warning("Failed to execute systemd-detect-virt: {}".format(e))
 
-
-        except (OSError, subprocess.TimeoutExpired) as e:
-            warnings.warn("Error occured while trying to detect if we're running in a container: {}".format(e), stacklevel=2)
-            pass
 
         try:
             with open("/run/systemd/container") as f:
                 val = f.read().strip()
                 return val if val else None
         except OSError:
-            pass
+            logger.warning("Failed to read /run/systemd/container to detect container type")
 
 
         # Absolute last resort - if we still can't detect anything, we're probably not in a container
@@ -479,7 +449,7 @@ class SystemdManager:
                 elif cgroup in container_types:
                     return cgroup
         except OSError:
-            pass
+            logger.warning("Failed to read /proc/1/cgroup to detect container type")
 
         return None
 
@@ -491,3 +461,24 @@ class SystemdManager:
         syslog.syslog(log_level, message)
 
 
+def _run_with_timeout(cmd, timeout):
+    # type: (list[str], int) -> tuple[bytes, bytes, int] | None
+
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    timed_out = {"value": False}
+    def _kill():
+        timed_out["value"] = True
+        process.kill()
+
+    timer = threading.Timer(timeout, _kill)
+    timer.start()
+    try:
+        stdout, stderr = process.communicate()
+    finally:
+        timer.cancel()
+
+    if timed_out["value"]:
+        return None
+
+    return stdout, stderr, process.returncode
