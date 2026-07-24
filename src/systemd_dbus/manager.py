@@ -17,9 +17,10 @@ under the License.
 """
 from __future__ import print_function
 
-__lazy_imports__ = ["logging", "re", "subprocess", "sys", "threading", "warnings"]
+__lazy_imports__ = ["logging", "os", "re", "subprocess", "sys", "threading", "warnings"]
 
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -415,23 +416,25 @@ class SystemdManager:
         # systemd-detect-virt is probably the best way to figure out if we're in a container.
         # It does a lot of different things to try to determine if it's running in a container and is more
         # reliable than checking the dbus property
-        try:
-            result = _run_with_timeout(["systemd_detect-virt", "--container"], timeout)
-            if result is None:
-                warnings.warn("systemd-detect-virt timed out after {} seconds, falling back to other methods".format(timeout), stacklevel=2)
-            elif result[2] == 0:
-                out = result[0].decode().strip()
-                if out == "none":
-                    return None
-                return out or None
-        except OSError as e:
-            logger.warning("Failed to execute systemd-detect-virt: {}".format(e))
+        if _which("systemd-detect-virt"):
+            try:
+                result = _run_with_timeout(["systemd-detect-virt", "--container"], timeout)
+                if result is None:
+                    warnings.warn("systemd-detect-virt timed out after {} seconds, falling back to other methods".format(timeout), stacklevel=2)
+                elif result[2] == 0:
+                    out = result[0].decode().strip()
+                    if out == "none":
+                        return None
+                    return out or None
+            except OSError as e:
+                logger.warning("Failed to execute systemd-detect-virt: {}".format(e))
 
 
         try:
-            with open("/run/systemd/container") as f:
-                val = f.read().strip()
-                return val if val else None
+            if os.path.exists("/run/systemd/container"):
+                with open("/run/systemd/container") as f:
+                    val = f.read().strip()
+                    return val if val else None
         except OSError:
             logger.warning("Failed to read /run/systemd/container to detect container type")
 
@@ -442,12 +445,13 @@ class SystemdManager:
                     "docker", "lxc", "lxc-libvirt", "lxc-oci", "rkt", "systemd-nspawn", "podman", "wsl", "proot", "pouch",
             }
 
-            with open("/proc/1/cgroup") as f:
-                cgroup = f.read().strip()
-                if "kubepods" in cgroup:
-                    return "kubernetes"
-                elif cgroup in container_types:
-                    return cgroup
+            if os.path.exists("/proc/1/cgroup"):
+                with open("/proc/1/cgroup") as f:
+                    cgroup = f.read().strip()
+                    if "kubepods" in cgroup:
+                        return "kubernetes"
+                    elif cgroup in container_types:
+                        return cgroup
         except OSError:
             logger.warning("Failed to read /proc/1/cgroup to detect container type")
 
@@ -482,3 +486,15 @@ def _run_with_timeout(cmd, timeout):
         return None
 
     return stdout, stderr, process.returncode
+
+def _which(cmd):
+    # (str) -> str | None
+    """Python 2/3 compatible way to find if an executable is in the PATH."""
+    if sys.version_info[0] < 3:
+        from distutils.spawn import find_executable
+        loc = find_executable(cmd)
+    else:
+        from shutil import which
+        loc = which(cmd)
+
+    return loc
