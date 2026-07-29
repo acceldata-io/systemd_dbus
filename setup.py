@@ -31,7 +31,7 @@ native = Extension(
     name="systemd_dbus._sdbus",
     sources=["src/systemd_dbus/c/systemd_dbus.c", "src/systemd_dbus/c/dbus_api.c"],
     extra_compile_args=["-fPIC", "-Wall", "-Wextra", "-std=gnu99", "-Wundef"],
-    **ext_args,
+    **ext_args
 )
 
 
