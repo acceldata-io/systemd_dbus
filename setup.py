@@ -1,6 +1,7 @@
 from setuptools import Extension, find_packages, setup
 import os
 import shutil
+import sys
 
 
 dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +35,9 @@ native = Extension(
     **ext_args
 )
 
+extra_requires = {}
+if sys.version_info[0] == 2:
+    extra_requires[":python_version=='2.7'"] = ["jinja2==2.11.3"],
 
 setup(
     name="systemd-dbus",
@@ -44,7 +48,7 @@ setup(
     license="Apache-2.0",
     python_requires=">=2.7",
     package_data={"systemd_dbus": [priv_soname]} if should_vendor else {},
-    install_requires=["jinja2 == 2.11.3; python_version == '2.7'"],
+    extras_require=extra_requires,
     ext_modules=[native],
     packages=find_packages(where="src"),
     package_dir={"": "src"},
