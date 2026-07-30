@@ -222,6 +222,26 @@ VALID_UNIT_TYPES = set([
     "snapshot",
 ])
 
+def _os_release():
+    data = {}
+    for path in ("/etc/os-release", "/usr/lib/os-release"):
+        try:
+            with open(path) as f:
+                for line in f:
+                    if "=" in line:
+                        k, _, v = line.partition("=")
+                        data[k.strip()] = v.strip().strip('"')
+            break
+        except IOError:
+            continue
+    return data
+
+def is_rhel_7():
+    d = _os_release()
+    like = (d.get("ID", "") + " " + d.get("ID_LIKE", ""))
+    return d.get("VERSION_ID", "").split(".")[0] == "7" and \
+           ("rhel" in like or "centos" in like or "fedora" in like)
+
 class UnitFile:
     """Class for creating and managing systemd unit files"""
 
@@ -264,6 +284,12 @@ class UnitFile:
                 "Slice",
             ]
         )
+        self.is_rhel7 = False
+        try:
+            self.is_rhel7 = is_rhel_7()
+        except Exception as e:
+            logger.warning("Could not determine if this is RHEL 7 - assuming no: {}".format(e))
+            self.is_rhel7 = False
 
         if isinstance(runtime_dir, basestring):
             runtime_directory = runtime_dir
@@ -283,20 +309,22 @@ class UnitFile:
                 ("Type", "simple"),
                 ("User", user),
                 ("Group", group if group else user),
-                ("ProtectSystem", "full"),
-                ("ReadWritePaths", "-/etc/{0}".format(self.name)),
-                ("ReadWritePaths", "/usr/odp/"),
                 ("LogsDirectory", self.name),
                 ("RuntimeDirectory", runtime_directory),
-                ("LockPersonality", "yes"),
-                ("ProtectKernelModules", "yes"),
-                ("ProtectKernelTunables", "yes"),
-                ("ProtectControlGroups", "yes"),
-                ("NoNewPrivileges", "true"),
-                ("ProtectHome", "true"),
-                ("PrivateTmp", "true"),
-                ("PrivateDevices", "true"),
             ]
+            if not self.is_rhel7:
+                service.append(("ProtectSystem", "full"))
+                service.append(("ReadWritePaths", "-/etc/{0}".format(self.name)))
+                service.append(("ReadWritePaths", "/usr/odp/"))
+                service.append(("LockPersonality", "yes"))
+                service.append(("ProtectKernelModules", "yes"))
+                service.append(("ProtectKernelTunables", "yes"))
+                service.append(("ProtectControlGroups", "yes"))
+                service.append(("NoNewPrivileges", "true"))
+                service.append(("ProtectHome", "true"))
+                service.append(("PrivateTmp", "true"))
+                service.append(("PrivateDevices", "true"))
+
         else:
             unit = []
             install = []
@@ -408,6 +436,8 @@ class UnitFile:
     def add_writable_paths(self, paths=None):
         # type: (list[str]|None) -> None
         """Add permission to read and write to  paths. *paths can contain additional paths. Directories in /tmp do not need to be added."""
+        if self.is_rhel7:
+            return
         if paths is None:
             paths = []
         for path in paths:
@@ -416,6 +446,8 @@ class UnitFile:
     def add_writable_path(self, path, comment=None, allow_failure=False, *paths):
         # type: (str, str|None, bool, *str) -> None
         """Add permission to read and write to  paths."""
+        if self.is_rhel7:
+            return
         if path is None or not str(path).strip():
             raise ValueError("Path cannot be empty or None")
 
