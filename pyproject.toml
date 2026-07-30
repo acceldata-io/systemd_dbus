@@ -42,7 +42,7 @@ testpaths = ["tests"]
 filterwarnings = ["ignore::UserWarning:systemd_dbus"]
 # This is the default, in case someone is somewhere where DBus is not available.
 # To run all of the tests, run `pytest -m ""`
-addopts = "-m 'not integration' --cov=src --cov-report=term-missing"
+addopts = "-m 'not integration'" # --cov=src --cov-report=term-missing"
 markers = [
   "integration: requires D-Bus and systemd (deselect with '-m not integration')",
 ]
