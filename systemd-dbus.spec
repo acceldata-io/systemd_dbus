@@ -31,7 +31,7 @@
 
 
 Name:           systemd-dbus
-Version:        0.3
+Version:        0.4
 Release:        1%{?dist}
 Summary:        Python bindings for systemd D-Bus management
 
@@ -120,5 +120,7 @@ permission is denied.
 %endif
 
 %changelog
-* Wed Mar 25 2026 Jeffrey Smith <jeffrey.smith7@gmail.com> - 0.2-1
+* Thu Jul 30 2026 Jeffrey Smith <jeffrey.smith@acceldata.io> - 0.4
+- Update package to newer version
+* Wed Mar 25 2026 Jeffrey Smith <jeffrey.smith@acceldata.io> - 0.2-1
 - Initial package

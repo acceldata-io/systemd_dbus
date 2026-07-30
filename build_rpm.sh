@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
+PYTHON_VERSION="${PYTHON_VERSION:-3.14}"
 TOPDIR=$(pwd)/rpmbuild
-mkdir -p ${TOPDIR}/{SOURCES,SPECS,BUILD,RPMS,SRPMS}
+mkdir -p "${TOPDIR}/{SOURCES,SPECS,BUILD,RPMS,SRPMS}"
 
 # Delete any old source files
-rm -rf ${TOPDIR}/SOURCES/*.tar.gz
+rm -rf "${TOPDIR}"/SOURCES/*.tar.gz
 
 NAME="systemd-dbus"
 VERSION=$(rpmspec -q --qf '%{version}\n' systemd-dbus.spec 2>/dev/null | head -1)
@@ -27,4 +27,4 @@ rpmbuild -ba \
   systemd-dbus.spec
 
 echo "Built RPMs:"
-find ${TOPDIR}/RPMS -name "*.rpm" -type f
+find "${TOPDIR}"/RPMS -name "*.rpm" -type f

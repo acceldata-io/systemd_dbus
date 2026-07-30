@@ -8,8 +8,8 @@ If Ambari is detected, you can also write out Polkit rules, to allow specific
 users to manage a specific service without needing root access, and also Systemd
 unit file generation, which allows you to create Systemd unit files programatically.
 
-This library works with both Python 2.7 and Python 3. It has only been tested
-with 2.7 and 3.11, but will likely work with at least Python 3.8 or later.
+This library works with both Python 2.7 and Python 3. It has been tested
+with 2.7, 3.11, and 3.14, but will likely work with any Python 3.8 or later.
 
 ## Installation
 
@@ -331,7 +331,7 @@ chmod +x build_deb.sh
 ./build_deb.sh
 ```
 
-By default, this will build a package for Python 3.11, but you can override
+By default, this will build a package for Python 3.14, but you can override
 this by overriding the Python version:
 
 ```bash

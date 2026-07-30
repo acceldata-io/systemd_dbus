@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 export DH_VERBOSE
 
-PYTHON_VERSION ?= 3.11
+PYTHON_VERSION ?= 3.14
 PYTHON = python$(PYTHON_VERSION)
 
 export PYBUILD_NAME=systemd-dbus
