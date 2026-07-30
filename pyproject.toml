@@ -24,10 +24,11 @@ dependencies = [
 
 
 [project.optional-dependencies]
-dev = [
+test = [
   "pytest >= 9.0, < 10; python_version >= '3.9'",
   "pytest >= 6.0, < 7; python_version >= '3.6' and python_version < '3.9'",
   "pytest==4.6.11; python_version == '2.7'",                                # Python 2 won't actually read this file
+  "pytest-cov",
 ]
 
 [tool.setuptools]
@@ -41,10 +42,18 @@ testpaths = ["tests"]
 filterwarnings = ["ignore::UserWarning:systemd_dbus"]
 # This is the default, in case someone is somewhere where DBus is not available.
 # To run all of the tests, run `pytest -m ""`
-addopts = "-m not-integration"
+addopts = "-m 'not integration' --cov=src --cov-report=term-missing"
 markers = [
   "integration: requires D-Bus and systemd (deselect with '-m not integration')",
 ]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 80
 
 [tool.ruff]
 exclude = [
