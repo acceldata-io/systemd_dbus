@@ -16,7 +16,6 @@ setup(
     author_email="jeffrey.smith@acceldata.io",
     license="Apache-2.0",
     python_requires=">=2.7",
-    install_requires=["jinja2 == 2.11.3; python_version == '2.7'"],
     ext_modules=[native],
     packages=find_packages(where="src"),
     package_dir={"": "src"},
