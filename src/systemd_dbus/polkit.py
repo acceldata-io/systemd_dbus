@@ -17,11 +17,22 @@ under the License.
 """
 from __future__ import print_function
 
-try:
-    from ambari_jinja2.environment import Environment  # pyright: ignore noqa
 
-except ImportError:
-    from jinja2 import Environment  # pyright: ignore noqa
+def _get_environment():
+    """Return the jinja Environment class, preferring the copy bundled with
+    ambari-agent. Imported lazily so the rest of the library works on hosts
+    that have neither."""
+    try:
+        from ambari_jinja2.environment import Environment  # pyright: ignore noqa
+    except ImportError:
+        try:
+            from jinja2 import Environment  # pyright: ignore noqa
+        except ImportError:
+            raise ImportError(
+                "PolkitRule needs ambari_jinja2 (from ambari-agent) or jinja2; "
+                "install ambari-agent or 'systemd-dbus[jinja]'"
+            )
+    return Environment
 
 __lazy_imports__ = ["os", "re"]
 import logging
@@ -43,7 +54,7 @@ class PolkitRule:
         self.name = "{}-".format(prefix_num) + name + ".rules"
         self.values = kwargs
         self.rendered_template = None
-        self.env = Environment(trim_blocks=True)
+        self.env = _get_environment()(trim_blocks=True)
         if manual_rules is not None:
             self.template = self.env.from_string(manual_rules)
         else:
